@@ -69,7 +69,7 @@ const viewEmployees = async () => {
         const result = await pool.query('SELECT employees.id AS "ID", employees.first_name AS "First Name", employees.last_name AS "Last Name", roles.title AS "Job Title", departments.name AS "Department", roles.salary AS "Salary", CONCAT(managers.first_name, \' \', managers.last_name) AS "Manager" FROM employees LEFT JOIN roles ON employees.role_id = roles.id LEFT JOIN departments ON roles.department_id = departments.id LEFT JOIN employees managers ON employees.manager_id = managers.id');
         const table = new Table({
             head: ['ID', 'First Name', 'Last Name', 'Job Title', 'Department', 'Salary', 'Manager'],
-            colWidths: [5, 10, 12, 19, 18, 15, 15],
+            colWidths: [5, 12, 12, 19, 18, 15, 15],
         });
         result.rows.forEach((row) => {
             table.push([row["ID"], row["First Name"], row["Last Name"], row["Job Title"], row["Department"], row["Salary"], row["Manager"]]);
