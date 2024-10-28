@@ -6,85 +6,189 @@ const PORT = process.env.PORT || 3001;
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-inquirer.prompt([
-    {
-        type: 'list',
-        name: 'action',
-        message: 'What would you like to do?',
-        choices: [
-            'view all departments',
-            'view all roles',
-            'view all employees',
-            'add a department',
-            'add a role',
-            'add an employee',
-            'update an employee role',
-        ],
-    },
-]).then((answers) => {
+inquirer.prompt({
+    type: 'list',
+    name: 'action',
+    message: 'What would you like to do?',
+    choices: [
+        'View all departments',
+        'View all roles',
+        'View all employees',
+        'Add a department',
+        'Add a role',
+        'Add an employee',
+        'Update an employee role',
+        'Exit',
+    ],
+})
+    .then((answers) => {
     switch (answers.action) {
-        case 'view all departments':
-            app.get('db/departments', async (_req, res) => {
-                const sql = 'SELECT * FROM departments';
-                pool.query(sql, (err, result) => {
-                    if (err) {
-                        res.status(500).json({ error: err.message });
-                        return;
-                    }
-                    const { rows } = result;
-                    res.json({
-                        message: 'success',
-                        data: rows,
-                    });
-                });
-            });
+        case 'View all departments':
+            viewDepartments();
             break;
-        case 'view all roles':
-            app.get('/roles', async (_req, res) => {
-                const result = await pool.query('SELECT * FROM role');
-                res.json(result.rows);
-            });
+        case 'View all roles':
+            viewRoles();
             break;
-        case 'view all employees':
-            app.get('/employees', async (_req, res) => {
-                const result = await pool.query('SELECT * FROM employee');
-                res.json(result.rows);
-            });
+        case 'View all employees':
+            viewEmployees();
             break;
-        case 'add a department':
-            app.post('/departments', async (req, res) => {
-                const { name } = req.body;
-                await pool.query('INSERT INTO department (name) VALUES ($1)', [name]);
-                res.send('Department added');
-            });
+        case 'Add a department':
+            addDepartment();
             break;
-        case 'add a role':
-            app.post('/roles', async (req, res) => {
-                const { title, salary, department_id } = req.body;
-                await pool.query('INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)', [title, salary, department_id]);
-                res.send('Role added');
-            });
+        case 'Add a role':
+            addRole();
             break;
-        case 'add an employee':
-            app.post('/employees', async (req, res) => {
-                const { first_name, last_name, role_id, manager_id } = req.body;
-                await pool.query('INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)', [first_name, last_name, role_id, manager_id]);
-                res.send('Employee added');
-            });
+        case 'Add an employee':
+            addEmployee();
             break;
-        case 'update an employee role':
-            app.put('/employees/:id', async (req, res) => {
-                const { id } = req.params;
-                const { role_id } = req.body;
-                await pool.query('UPDATE employee SET role_id = $1 WHERE id = $2', [role_id, id]);
-                res.send('Employee role updated');
-            });
+        case 'Update an employee role':
+            updateEmployeeRole();
             break;
+        case 'Exit':
+            process.exit(0);
     }
 });
-app.use((_req, res) => {
-    res.status(404).end();
-});
+const viewDepartments = async () => {
+    const res = await pool.query('SELECT * FROM departments;');
+    console.table(res.rows);
+    prompt();
+};
+const viewRoles = async () => {
+    const res = await pool.query('SELECT * FROM roles');
+    console.table(res.rows);
+    prompt();
+};
+const viewEmployees = async () => {
+    const res = await pool.query('SELECT * FROM employees');
+    console.table(res.rows);
+    prompt();
+};
+const addDepartment = async () => {
+    const answers = await inquirer.prompt({
+        type: 'input',
+        name: 'name',
+        message: 'What is the name of the department?',
+    });
+    await pool.query('INSERT INTO departments (name) VALUES ($1)', [answers.name]);
+    console.log('Department added.');
+    prompt();
+};
+const addRole = async () => {
+    const departments = await pool.query('SELECT * FROM departments');
+    const answers = await inquirer.prompt([
+        {
+            type: 'input',
+            name: 'title',
+            message: 'What is the title of the role?',
+        },
+        {
+            type: 'input',
+            name: 'salary',
+            message: 'What is the salary of the role?',
+        },
+        {
+            type: 'list',
+            name: 'department_id',
+            message: 'Which department does the role belong to?',
+            choices: departments.rows.map((department) => ({
+                name: department.name,
+                value: department.id,
+            })),
+        },
+    ]);
+    await pool.query('INSERT INTO roles (title, salary, department_id) VALUES ($1, $2, $3)', [
+        answers.title,
+        answers.salary,
+        answers.department_id,
+    ]);
+    console.log('Role added.');
+    prompt();
+};
+const addEmployee = async () => {
+    const roles = await pool.query('SELECT * FROM roles');
+    const employees = await pool.query('SELECT * FROM employees');
+    const answers = await inquirer.prompt([
+        {
+            type: 'input',
+            name: 'first_name',
+            message: 'What is the employee\'s first name?',
+        },
+        {
+            type: 'input',
+            name: 'last_name',
+            message: 'What is the employee\'s last name?',
+        },
+        {
+            type: 'list',
+            name: 'role_id',
+            message: 'What is the employee\'s role?',
+            choices: roles.rows.map((role) => ({
+                name: role.title,
+                value: role.id,
+            })),
+        },
+        {
+            type: 'list',
+            name: 'manager_id',
+            message: 'Who is the employee\'s manager?',
+            choices: employees.rows.map((employee) => ({
+                name: `${employee.first_name} ${employee.last_name}`,
+                value: employee.id,
+            })),
+        },
+    ]);
+    await pool.query('INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)', [
+        answers.first_name,
+        answers.last_name,
+        answers.role_id,
+        answers.manager_id,
+    ]);
+    console.log('Employee added.');
+    prompt();
+};
+const updateEmployeeRole = async () => {
+    const employees = await pool.query('SELECT * FROM employees');
+    const roles = await pool.query('SELECT * FROM roles');
+    const answers = await inquirer.prompt([
+        {
+            type: 'list',
+            name: 'employee_id',
+            message: 'Which employee would you like to update?',
+            choices: employees.rows.map((employee) => ({
+                name: `${employee.first_name} ${employee.last_name}`,
+                value: employee.id,
+            })),
+        },
+        {
+            type: 'list',
+            name: 'role_id',
+            message: 'What is the employee\'s new role?',
+            choices: roles.rows.map((role) => ({
+                name: role.title,
+                value: role.id,
+            })),
+        },
+    ]);
+    await pool.query('UPDATE employees SET role_id = $1 WHERE id = $2', [answers.role_id, answers.employee_id]);
+    console.log('Employee role updated.');
+    prompt();
+};
+const prompt = () => {
+    inquirer
+        .prompt({
+        type: 'confirm',
+        name: 'continue',
+        message: 'Would you like to do something else?',
+    })
+        .then((answers) => {
+        if (answers.continue) {
+            prompt();
+        }
+        else {
+            process.exit(0);
+        }
+    });
+};
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });

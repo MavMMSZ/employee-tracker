@@ -19,4 +19,5 @@ const connectToDb = async () => {
         process.exit(1);
     }
 };
+console.log(process.env.DB_USER);
 export { pool, connectToDb };
